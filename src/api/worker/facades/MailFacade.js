@@ -372,14 +372,15 @@ export class MailFacade {
 			}
 		}
 
-		// const hasSuspiciousLink = links.some(({href, innerHTML}) => {
-		// 	const innerText = htmlToText(href)
-		// 	const url = parseUrl(innerText)
-		// 	return url && url !== href
-		// })
-		// if (hasSuspiciousLink) {
-		// 	score += 6
-		// }
+		const hasSuspiciousLink = links.some(({href, innerHTML}) => {
+			const innerText = htmlToText(innerHTML)
+			const textUrl = parseUrl(innerText)
+			const hrefUrl = parseUrl(href)
+			return textUrl && hrefUrl && textUrl.hostname !== hrefUrl.hostname
+		})
+		if (hasSuspiciousLink) {
+			score += 6
+		}
 		return Promise.resolve(7 < score)
 	}
 

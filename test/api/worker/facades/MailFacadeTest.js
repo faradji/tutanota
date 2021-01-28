@@ -346,5 +346,23 @@ o.spec("MailFacade test", function () {
 
 			o(await facade.checkMailForPhishing(mail, [{href: "https://example.com", innerHTML: "https://evil-domain.com"}])).equals(true)
 		})
+
+		o("link is not suspicious if on the same domain", async function () {
+			const mail = createMail({
+				subject: "Test",
+				authStatus: MailAuthenticationStatus.AUTHENTICATED,
+				sender: createMailAddress({
+					name: "a",
+					address: "test@example.com"
+				})
+			})
+			facade.phishingMarkersUpdateReceived([
+				createPhishingMarker({
+					marker: phishingMarkerValue(ReportedMailFieldType.SUBJECT, "Test"),
+				}),
+			])
+
+			o(await facade.checkMailForPhishing(mail, [{href: "https://example.com", innerHTML: "https://example.com/test"}])).equals(false)
+		})
 	})
 })
