@@ -1329,6 +1329,8 @@ export default {
 		"selectGroup_label": "Select group",
 		"selectTemplate_action": "Select Template",
 		"templateNotExists_msg": "This template no longer exists!",
-		"selectNextTemplate_action": "Select next template"
+		"selectNextTemplate_action": "Select next template",
+		"deleteTemplateGroup_msg": "Are you sure you want to delete the Template Group?",
+		"templateGroupHasMember_msg": "Please remove all members if you want to delete the group"
 	}
 }

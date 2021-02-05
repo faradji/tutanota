@@ -58,7 +58,7 @@ import {FileOpenError} from "../api/common/error/FileOpenError"
 import {assertNotNull, downcast, noOp, defer} from "../api/common/utils/Utils"
 import {showUpgradeWizard} from "../subscription/UpgradeSubscriptionWizard"
 import {DomRectReadOnlyPolyfilled} from "../gui/base/Dropdown"
-import {TEMPLATE_POPUP_HEIGHT, TemplatePopup} from "../templates/TemplatePopup"
+import {showTemplatePopupInEditor, TEMPLATE_POPUP_HEIGHT, TemplatePopup} from "../templates/TemplatePopup"
 import {showUserError} from "../misc/ErrorHandlerImpl"
 import {formatPrice} from "../subscription/PriceUtils"
 import {KnowledgeBaseView} from "../knowledgebase/KnowledgeBaseView"
@@ -519,10 +519,9 @@ function createMailEditorDialog(model: SendMailModel, blockExternalContent: bool
 		view: () => {
 			return locator.knowledgebase.getStatus()
 				? m(KnowledgeBaseView, {
-					onSubmit: (text) => {
+					onTemplateSelect: (template) => {
 						editorDeferred.promise.then((editor) => {
-							editor.insertHTML(text)
-							editor.focus()
+							showTemplatePopupInEditor(editor, template)
 						})
 					},
 					model: locator.knowledgebase
@@ -590,28 +589,9 @@ function createMailEditorDialog(model: SendMailModel, blockExternalContent: bool
 
 
 function openTemplateFeature(editor: ?Editor) {
-	const _editor = assertNotNull(editor)
-	const highlightedText = _editor.getSelectedText()
-	const cursorRect = _editor.getCursorPosition()
-	const editorRect = _editor.getDOM().getBoundingClientRect();
-	const onsubmit = (text) => {
-		_editor.insertHTML(text)
-		_editor.focus()
+	if (editor) {
+		showTemplatePopupInEditor(editor, null)
 	}
-
-	let rect
-	const availableHeightBelowCursor = window.innerHeight - cursorRect.bottom
-	const popUpHeight = TEMPLATE_POPUP_HEIGHT + 10 // height + 10px offset for space from the bottom of the screen
-
-	// By default the popup is shown below the cursor. If there is not enough space move the popup above the cursor
-	const popUpWidth = editorRect.right - editorRect.left;
-	if (availableHeightBelowCursor < popUpHeight) {
-		const diff = popUpHeight - availableHeightBelowCursor
-		rect = new DomRectReadOnlyPolyfilled(editorRect.left, cursorRect.bottom - diff, popUpWidth, cursorRect.height);
-	} else {
-		rect = new DomRectReadOnlyPolyfilled(editorRect.left, cursorRect.bottom, popUpWidth, cursorRect.height);
-	}
-	locator.templateModel.init().then(new TemplatePopup(locator.templateModel, rect, onsubmit, highlightedText).show())
 }
 
 

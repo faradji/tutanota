@@ -61,7 +61,7 @@ export class TemplateModel {
 	init(): Promise<void> {
 		const allEmailTemplates = []
 		return this._templateGroupModel.init().then(templateGroupInstances => {
-			Promise.each(templateGroupInstances, templateGroupInstance => {
+			return Promise.each(templateGroupInstances, templateGroupInstance => {
 				return this._entityClient.loadAll(EmailTemplateTypeRef, templateGroupInstance.groupRoot.templates)
 				           .then((templates) => {
 					           allEmailTemplates.push(...templates)

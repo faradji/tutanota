@@ -1318,4 +1318,6 @@ export type TranslationKeyType = "about_label"
 	| "selectTemplate_action"
 	| "templateNotExists_msg"
 	| "selectNextTemplate_action"
+	| "deleteTemplateGroup_msg"
+	| "templateGroupHasMember_msg"
 

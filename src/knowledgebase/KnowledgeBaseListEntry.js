@@ -21,7 +21,7 @@ export class KnowledgeBaseListEntry implements MComponent<KnowledgebaseListEntry
 				height: px(KNOWLEDGEBASE_LIST_ENTRY_HEIGHT),
 			}
 		}, [
-			m(".text-ellipsis.mb-xs", title),
+			m(".text-ellipsis.mb-xs.b", title),
 			m(".flex.badge-line-height.text-ellipsis", [
 				keywords.map(keyword => {
 					return m(".b.small.teamLabel.pl-s.pr-s.border-radius.no-wrap.small.mr-s.min-content", keyword.keyword)

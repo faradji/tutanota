@@ -9,7 +9,6 @@ import {theme} from "../gui/theme"
 
 export type TemplateSearchBarAttrs = {
 	value: Stream<string>,
-	type?: TextFieldTypeEnum,
 	placeholder?: TranslationKey | lazy<string>,
 	oninput?: (value: string, input: HTMLInputElement) => mixed,
 	keyHandler?: keyHandler
@@ -23,10 +22,9 @@ export class TemplateSearchBar implements MComponent<TemplateSearchBarAttrs> {
 
 	view(vnode: Vnode<TemplateSearchBarAttrs>):Children {
 		const a = vnode.attrs
-		return m(".inputWrapper.half-width", {
+		return m(".inputWrapper.pt-xs.pb-xs", {
 			style: {
 				'border-bottom': `1px solid ${theme.content_border}`,
-				'max-width': "50%"
 			}
 		}, this._getInputField(a))
 	}

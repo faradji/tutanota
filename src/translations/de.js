@@ -1311,6 +1311,8 @@ export default {
 		"addTemplate_label": "Vorlage hinzufügen",
 		"selectTemplate_action": "Vorlage auswählen",
 		"templateNotExists_msg": "Diese Vorlage exisitert nicht mehr!",
-		"selectNextTemplate_action": "Selektiere nächste Vorlage"
+		"selectNextTemplate_action": "Selektiere nächste Vorlage",
+		"deleteTemplateGroup_msg": "Möchtest du die Template Gruppe löschen?",
+		"templateGroupHasMember_msg": "Entferne bitte alle Mitglieder, wenn du die Gruppe löschen möchtest"
 	}
 }

@@ -184,16 +184,8 @@ export class GroupViewer {
 				m("#user-viewer.fill-absolute.scroll.plr-l", [
 					m(".flex.mt-l.center-vertically", [
 						m(".h4", (this._group.isLoaded()) ? getGroupTypeName(this._group.getLoaded().type) : lang.get("emptyString_msg")),
-						this.groupInfo.groupType === GroupType.Template
-							? m(".flex.flex-grow.justify-end.mr-negative-s", m(ButtonN, {
-								label: "remove_action",
-								icon: () => Icons.Trash,
-								type: ButtonType.Action,
-								click: () => {
-									const deleteGroupData = createTemplateGroupDeleteData({group: this._group.getLoaded()._id})
-									serviceRequestVoid(TutanotaService.TemplateGroupService, HttpMethod.DELETE, deleteGroupData)
-								}
-							}))
+						this._isTemplateGroup()
+							? this._showRemoveTemplateGroupButton()
 							: null,
 					]),
 					m("", [
@@ -263,6 +255,23 @@ export class GroupViewer {
 		})
 	}
 
+	_showRemoveTemplateGroupButton(): Children {
+		return m(".flex.flex-grow.justify-end.mr-negative-s", m(ButtonN, {
+			label: "remove_action",
+			icon: () => Icons.Trash,
+			type: ButtonType.Action,
+			click: () => {
+				Dialog.confirm("deleteTemplateGroup_msg").then(confirmed => {
+					if (confirmed) {
+						const deleteGroupData = createTemplateGroupDeleteData({group: this._group.getLoaded()._id})
+						serviceRequestVoid(TutanotaService.TemplateGroupService, HttpMethod.DELETE, deleteGroupData)
+							.catch(PreconditionFailedError, () => Dialog.error("templateGroupHasMember_msg"))
+					}
+				})
+			}
+		}))
+	}
+
 	_updateMembers(): Promise<void> {
 		this._members.reset()
 		return this._members.getAsync().map(userGroupInfo => {
@@ -304,6 +313,10 @@ export class GroupViewer {
 
 	_isMailGroup(): boolean {
 		return this.groupInfo.groupType === GroupType.Mail
+	}
+
+	_isTemplateGroup(): boolean {
+		return this.groupInfo.groupType === GroupType.Template
 	}
 
 	_updateUsedStorage(): Promise<void> {

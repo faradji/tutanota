@@ -2,19 +2,17 @@
 import m from "mithril"
 import type {ModalComponent} from "../gui/base/Modal"
 import {modal} from "../gui/base/Modal"
-import {inputLineHeight, px} from "../gui/size"
+import {px} from "../gui/size"
 import type {Shortcut} from "../misc/KeyManager"
-import {isKeyPressed, keyManager} from "../misc/KeyManager"
+import {isKeyPressed} from "../misc/KeyManager"
 import type {PosRect} from "../gui/base/Dropdown"
 import type {TextFieldAttrs} from "../gui/base/TextFieldN"
-import {TextFieldN, Type} from "../gui/base/TextFieldN"
 import stream from "mithril/stream/stream.js"
 import {Keys} from "../api/common/TutanotaConstants"
 import {TemplatePopupResultRow} from "./TemplatePopupResultRow"
 import {Icons} from "../gui/base/icons/Icons"
 import {Icon} from "../gui/base/Icon"
 import {TemplateExpander} from "./TemplateExpander"
-import {theme} from "../gui/theme"
 import {lang} from "../misc/LanguageViewModel"
 import {Dialog} from "../gui/base/Dialog"
 import {windowFacade} from "../misc/WindowFacade"
@@ -23,11 +21,13 @@ import type {ButtonAttrs} from "../gui/base/ButtonN"
 import {ButtonColors, ButtonN, ButtonType} from "../gui/base/ButtonN"
 import {SELECT_NEXT_TEMPLATE, SELECT_PREV_TEMPLATE, TemplateModel} from "./TemplateModel"
 import {attachDropdown} from "../gui/base/DropdownN"
-import {neverNull, noOp} from "../api/common/utils/Utils"
+import {assertNotNull, neverNull, noOp} from "../api/common/utils/Utils"
 import {locator} from "../api/main/MainLocator"
 import {TemplateGroupRootTypeRef} from "../api/entities/tutanota/TemplateGroupRoot"
 import {showTemplateEditor} from "../settings/TemplateEditor"
 import {TemplateSearchBar} from "./TemplateSearchBar"
+import {Editor} from "../gui/base/Editor"
+import {DomRectReadOnlyPolyfilled} from "../gui/base/Dropdown"
 
 export const TEMPLATE_POPUP_HEIGHT = 340;
 export const TEMPLATE_POPUP_TWO_COLUMN_MIN_WIDTH = 600;
@@ -39,6 +39,34 @@ export const TEMPLATE_LIST_ENTRY_WIDTH = 354;
  *	Also allows user to change desired language when pasting.
  */
 
+
+export function showTemplatePopupInEditor(editor: Editor, template: ?EmailTemplate) {
+	const initialSearchString = template ? template.tag : ""
+	const cursorRect = editor.getCursorPosition()
+	const editorRect = editor.getDOM().getBoundingClientRect();
+	const onsubmit = (text) => {
+		editor.insertHTML(text)
+		editor.focus()
+	}
+
+	let rect
+	const availableHeightBelowCursor = window.innerHeight - cursorRect.bottom
+	const popUpHeight = TEMPLATE_POPUP_HEIGHT + 10 // height + 10px offset for space from the bottom of the screen
+
+	// By default the popup is shown below the cursor. If there is not enough space move the popup above the cursor
+	const popUpWidth = editorRect.right - editorRect.left;
+	if (availableHeightBelowCursor < popUpHeight) {
+		const diff = popUpHeight - availableHeightBelowCursor
+		rect = new DomRectReadOnlyPolyfilled(editorRect.left, cursorRect.bottom - diff, popUpWidth, cursorRect.height);
+	} else {
+		rect = new DomRectReadOnlyPolyfilled(editorRect.left, cursorRect.bottom, popUpWidth, cursorRect.height);
+	}
+	locator.templateModel.init().then(() => {
+		const popup = new TemplatePopup(locator.templateModel, rect, onsubmit, initialSearchString)
+		locator.templateModel.search(initialSearchString)
+		popup.show()
+	})
+}
 
 export function showTemplatePopup(rect: PosRect, onSubmit: (string) => void, highlightedText: string): void {
 // TODO init model open TemplatePopup
@@ -60,18 +88,15 @@ export class TemplatePopup implements ModalComponent {
 	_selectTemplateButtonAttrs: ButtonAttrs
 	_inputDom: HTMLElement
 
-	constructor(templateModel: TemplateModel, rect: PosRect, onSubmit: (string) => void, highlightedText: string) {
+	constructor(templateModel: TemplateModel, rect: PosRect, onSubmit: (string) => void, initialSearchString: string) {
 		this._rect = rect
 		this._onSubmit = onSubmit
 		this._initialWindowWidth = window.innerWidth
 		this._resizeListener = () => {
 			this._close()
 		}
-		this._searchBarValue = stream(highlightedText)
-
+		this._searchBarValue = stream(initialSearchString)
 		this._templateModel = templateModel
-		// initial search
-		this._templateModel.search(highlightedText)
 
 		this._shortcuts = [
 			{
@@ -96,7 +121,9 @@ export class TemplatePopup implements ModalComponent {
 				help: "insertTemplate_action"
 			},
 		]
-		this._redrawStream = templateModel.getSearchResults().map(() => m.redraw())
+		this._redrawStream = templateModel.getSearchResults().map((results) => {
+			m.redraw()
+		})
 
 		this._selectTemplateButtonAttrs = {
 			label: "selectTemplate_action",
@@ -111,11 +138,15 @@ export class TemplatePopup implements ModalComponent {
 			icon: () => Icons.Checkmark,
 			colors: ButtonColors.DrawerNav,
 		}
+		templateModel.search(initialSearchString)
+
+
 	}
 
 	view(): Children {
 		const showTwoColumns = this._isScreenWideEnough()
-		return m(".flex.flex-column.abs.elevated-bg.plr.border-radius.dropdown-shadow", { // Main Wrapper
+
+		return m(".flex.flex-column.abs.elevated-bg.pr.border-radius.dropdown-shadow", { // Main Wrapper
 				style: {
 					width: px(this._rect.width),
 					height: px(TEMPLATE_POPUP_HEIGHT),
@@ -134,7 +165,7 @@ export class TemplatePopup implements ModalComponent {
 				},
 			}, [
 				this._renderHeader(),
-				m(".flex.flex-grow", [
+				m(".flex.flex-grow.scroll", [
 					m(".flex.flex-column.flex-grow-shrink-half" + (showTwoColumns ? ".pr" : ""), this._renderLeftColumn()),
 					showTwoColumns ? m(".flex.flex-column.flex-grow-shrink-half", this._renderRightColumn()) : null,
 				])
@@ -144,7 +175,7 @@ export class TemplatePopup implements ModalComponent {
 
 	_renderHeader(): Children {
 		const selectedTemplate = this._templateModel.getSelectedTemplate()
-		return m(".flex-space-between.center-vertically", [
+		return m(".flex-space-between.center-vertically.pl", [
 			this._renderSearchBar(),
 			m(".flex-end", [
 				selectedTemplate
@@ -156,7 +187,7 @@ export class TemplatePopup implements ModalComponent {
 	}
 
 	_renderSearchBar(): Children {
-		return m(TemplateSearchBar, {
+		return m(".flex.half-width", m(TemplateSearchBar, {
 			value: this._searchBarValue,
 			placeholder: "filter_label",
 			keyHandler: (keyPress) => {
@@ -178,7 +209,7 @@ export class TemplatePopup implements ModalComponent {
 			oncreate: (vnode) => {
 				this._inputDom = vnode.dom.firstElementChild // firstElementChild is the input field of the input wrapper
 			}
-		})
+		}))
 	}
 
 	_renderAddButton(): Children {
@@ -191,19 +222,40 @@ export class TemplatePopup implements ModalComponent {
 				}
 			}
 
-		},m(ButtonN, {
-			label: "createTemplate_action",
-			click: () => {
-				 const groupRootInstances = this._templateModel.getSelectedTemplateGroupRoot()
-				 if (groupRootInstances) {
-				 	showTemplateEditor(null, groupRootInstances.groupRoot)
-				 }
-			},
-			type: ButtonType.ActionLarge,
-			icon: () => Icons.Add,
-			colors: ButtonColors.DrawerNav,
-		}))
+		}, m(ButtonN, this._createAddButtonAttributes()))
 	}
+
+	_createAddButtonAttributes(): ButtonAttrs {
+		const templateGroupInstances = locator.templateGroupModel.getGroupInstances()
+		if (templateGroupInstances.length === 1) {
+			return {
+				label: "createTemplate_action",
+				click: () => {
+					showTemplateEditor(null, templateGroupInstances[0].groupRoot)
+				},
+				type: ButtonType.ActionLarge,
+				icon: () => Icons.Add,
+				colors: ButtonColors.DrawerNav
+			}
+		} else {
+			return attachDropdown({
+				label: "createTemplate_action",
+				click: noOp,
+				type: ButtonType.ActionLarge,
+				icon: () => Icons.Add,
+				colors: ButtonColors.DrawerNav
+			}, () => templateGroupInstances.map(groupInstances => {
+				return {
+					label: () => groupInstances.groupInfo.name,
+					click: () => {
+						showTemplateEditor(null, groupInstances.groupRoot)
+					},
+					type: ButtonType.Dropdown,
+				}
+			}))
+		}
+	}
+
 
 	_renderEditButtons(selectedTemplate: EmailTemplate): Children {
 		const selectedContent = this._templateModel.getSelectedContent()
@@ -275,12 +327,21 @@ export class TemplatePopup implements ModalComponent {
 					// backgroundColor: (index % 2) ? theme.list_bg : theme.list_alternate_bg
 				}
 			}, [
-				m(".flex.template-list-row" + (this._templateModel.isSelectedTemplate(template) ? ".row-selected" : ""), {
+				m(".flex.template-list-row" + (this._templateModel.isSelectedTemplate(template) ? ".row-selected" : ""),
+					{
 						onclick: (e) => {
 							this._templateModel.setSelectedTemplate(template)
 							this._inputDom.focus()
 							e.stopPropagation()
 						},
+						ondblclick: (e) => {
+							this._templateModel.setSelectedTemplate(template)
+							const selected = this._templateModel.getSelectedContent()
+							if (selected) {
+								this._onSubmit(selected.text)
+								this._close()
+							}
+						}
 					}, [
 						m(TemplatePopupResultRow, {template: template}),
 						this._templateModel.isSelectedTemplate(template) ? m(Icon, {

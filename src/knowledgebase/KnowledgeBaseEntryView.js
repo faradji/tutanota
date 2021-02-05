@@ -29,7 +29,7 @@ export class KnowledgeBaseEntryView implements MComponent<KnowledgeBaseEntryView
 	}
 
 	view({attrs}: Vnode<KnowledgeBaseEntryViewAttrs>): Children {
-		return m(".flex.flex-column", [
+		return m(".flex.flex-column.ml-s", [
 			this._renderContent(attrs)
 		])
 	}

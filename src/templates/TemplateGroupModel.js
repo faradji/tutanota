@@ -65,12 +65,12 @@ export class TemplateGroupModel {
 	}
 
 	_entityEventsReceived(updates: $ReadOnlyArray<EntityUpdateData>): Promise<void> {
-		const userController = logins.getUserController()
+		// const userController = logins.getUserController()
 		return Promise.each(updates, update => {
-			if(isUpdateForTypeRef(UserTypeRef, update) && isSameId(update.instanceId, userController.user._id)) {
+			if(isUpdateForTypeRef(UserTypeRef, update) && isSameId(update.instanceId, logins.getUserController().user._id)) {
 				if (this._groupInstances.isLoaded()){
 					const existingInstances = this.getGroupInstances().map(groupInstances => groupInstances.groupRoot._id)
-					const newMemberships = userController.getTemplateMemberships().map(membership => membership.group)
+					const newMemberships = logins.getUserController().getTemplateMemberships().map(membership => membership.group)
 					if (existingInstances.length !== newMemberships.length) {
 						this._groupInstances.reset()
 						this._groupInstances.getAsync()

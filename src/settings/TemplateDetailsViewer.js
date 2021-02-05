@@ -47,11 +47,9 @@ export class TemplateDetailsViewer {
 			icon: () => Icons.Trash,
 			type: ButtonType.Action,
 			click: () => {
-				console.log("remove")
 				Dialog.confirm("deleteTemplate_msg").then((confirmed) => {
 					if (confirmed) {
-						const promise = entityClient.erase(template)
-						promise.then(() => console.log("removed"))
+						entityClient.erase(template)
 					}
 				})
 			}

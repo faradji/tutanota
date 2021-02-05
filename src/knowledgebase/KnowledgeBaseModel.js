@@ -19,6 +19,9 @@ import type {TemplateGroupRoot} from "../api/entities/tutanota/TemplateGroupRoot
 import {TemplateGroupModel} from "../templates/TemplateGroupModel"
 import {getElementId, isSameId} from "../api/common/utils/EntityUtils"
 
+export const SELECT_NEXT_ENTRY = "next";
+export const SELECT_PREV_ENTRY = "previous";
+
 /**
  *   Model that holds main logic for the Knowdledgebase.
  */
@@ -68,6 +71,7 @@ export class KnowledgeBaseModel {
 				this._allEntries = allEntries
 				this.initAllKeywords()
 				this.filteredEntries(this._allEntries)
+				this.selectedEntry(this.containsResult() ? this.filteredEntries()[0] : null)
 			})
 		})
 	}
@@ -80,6 +84,10 @@ export class KnowledgeBaseModel {
 			})
 		})
 
+	}
+
+	isSelectedEntry(entry: KnowledgeBaseEntry): boolean {
+		return this.selectedEntry() === entry
 	}
 
 	containsResult(): boolean {
@@ -156,6 +164,21 @@ export class KnowledgeBaseModel {
 		} else {
 			this.filteredEntries(this._allEntries)
 		}
+	}
+
+	selectNextEntry(action: string): boolean { // returns true if selection is changed
+		const selectedIndex = this._getSelectedEntryIndex()
+		const nextIndex = selectedIndex + (action === SELECT_NEXT_ENTRY ? 1 : -1)
+		if(nextIndex >= 0 && nextIndex < this.filteredEntries().length) {
+			const nextSelectedEntry = this.filteredEntries()[nextIndex]
+			this.selectedEntry(nextSelectedEntry)
+			return true
+		}
+		return false
+	}
+
+	_getSelectedEntryIndex(): number {
+		return this.filteredEntries().indexOf(this.selectedEntry())
 	}
 
 	_removeFromAllKeywords(keyword: string) {
