@@ -92,6 +92,9 @@ export class KnowledgeBaseDetailsViewer {
 		if(target && target.closest) {
 			let anchorElement = target.closest("a")
 			if (anchorElement && startsWith(anchorElement.href, "tutatemplate:")) {
+				const currentRoute = m.route.get()
+				const newRoute = currentRoute.replace("knowledgebase", "template")
+				m.route.set(newRoute)
 				event.preventDefault()
 			}
 		}

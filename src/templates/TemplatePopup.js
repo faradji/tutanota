@@ -41,7 +41,7 @@ export const TEMPLATE_LIST_ENTRY_WIDTH = 354;
 
 
 export function showTemplatePopupInEditor(editor: Editor, template: ?EmailTemplate) {
-	const initialSearchString = template ? template.tag : ""
+	const initialSearchString = template ? "#" + template.tag : ""
 	const cursorRect = editor.getCursorPosition()
 	const editorRect = editor.getDOM().getBoundingClientRect();
 	const onsubmit = (text) => {
@@ -67,11 +67,6 @@ export function showTemplatePopupInEditor(editor: Editor, template: ?EmailTempla
 		popup.show()
 	})
 }
-
-export function showTemplatePopup(rect: PosRect, onSubmit: (string) => void, highlightedText: string): void {
-// TODO init model open TemplatePopup
-}
-
 
 export class TemplatePopup implements ModalComponent {
 	_rect: PosRect
@@ -146,7 +141,7 @@ export class TemplatePopup implements ModalComponent {
 	view(): Children {
 		const showTwoColumns = this._isScreenWideEnough()
 
-		return m(".flex.flex-column.abs.elevated-bg.pr.border-radius.dropdown-shadow", { // Main Wrapper
+		return m(".flex.flex-column.abs.elevated-bg.border-radius.dropdown-shadow", { // Main Wrapper
 				style: {
 					width: px(this._rect.width),
 					height: px(TEMPLATE_POPUP_HEIGHT),
@@ -165,9 +160,9 @@ export class TemplatePopup implements ModalComponent {
 				},
 			}, [
 				this._renderHeader(),
-				m(".flex.flex-grow.scroll", [
-					m(".flex.flex-column.flex-grow-shrink-half" + (showTwoColumns ? ".pr" : ""), this._renderLeftColumn()),
-					showTwoColumns ? m(".flex.flex-column.flex-grow-shrink-half", this._renderRightColumn()) : null,
+				m(".flex.flex-grow.scroll.mb-s", [
+					m(".flex.flex-column.scroll" + (showTwoColumns ? ".pr" : ""), {style: {flex: '1 1 40%'}}, this._renderLeftColumn()),
+					showTwoColumns ? m(".flex.flex-column.flex-grow-shrink-half", {style: {flex: '1 1 60%'}}, this._renderRightColumn()) : null,
 				])
 			],
 		)
@@ -187,7 +182,7 @@ export class TemplatePopup implements ModalComponent {
 	}
 
 	_renderSearchBar(): Children {
-		return m(".flex.half-width", m(TemplateSearchBar, {
+		return m(".flex", m(TemplateSearchBar, {
 			value: this._searchBarValue,
 			placeholder: "filter_label",
 			keyHandler: (keyPress) => {
@@ -309,7 +304,7 @@ export class TemplatePopup implements ModalComponent {
 
 	_renderLeftColumn(): Children {
 		return [
-			m(".flex.flex-column.scroll", { // left list
+			m(".flex.flex-column", { // left list
 					oncreate: (vnode) => {
 						this._scrollDom = vnode.dom
 					},

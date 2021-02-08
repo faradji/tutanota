@@ -11,21 +11,29 @@ export function searchInTemplates(input: string, allTemplates: Array<EmailTempla
 				let templateTitle = template.title.toLowerCase()
 				let templateTag = template.tag
 				let templateContents = template.contents
-				//search in title
-				if (templateTitle.includes(queryString) && !matchedTemplates.includes(template)) {
-					matchedTemplates.push(template)
-				}
-				//search in tag
-				if (templateTag.includes(queryString) && !matchedTemplates.includes(template)) {
-					matchedTemplates.push(template)
-				}
-				//search in contents
-				templateContents.forEach(c => {
-					let content = c.text.toLowerCase()
-					if (content.includes(queryString) && !matchedTemplates.includes(template)) {
+				if(queryString.startsWith("#")) { // search by tag
+					const newQueryString = queryString.substring(1)
+					//search in tag
+					if (templateTag.includes(newQueryString) && !matchedTemplates.includes(template)) {
 						matchedTemplates.push(template)
 					}
-				})
+				} else {
+					//search in title
+					if (templateTitle.includes(queryString) && !matchedTemplates.includes(template)) {
+						matchedTemplates.push(template)
+					}
+					//search in tag
+					if (templateTag.includes(queryString) && !matchedTemplates.includes(template)) {
+						matchedTemplates.push(template)
+					}
+					//search in contents
+					templateContents.forEach(c => {
+						let content = c.text.toLowerCase()
+						if (content.includes(queryString) && !matchedTemplates.includes(template)) {
+							matchedTemplates.push(template)
+						}
+					})
+				}
 			})
 		}
 	}

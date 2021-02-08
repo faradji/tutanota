@@ -25,6 +25,7 @@ import {Keys} from "../api/common/TutanotaConstants"
 import {SELECT_NEXT_TEMPLATE, SELECT_PREV_TEMPLATE} from "../templates/TemplateModel"
 import {Icon} from "../gui/base/Icon"
 import {Icons} from "../gui/base/icons/Icons"
+import {windowFacade} from "../misc/WindowFacade"
 
 type KnowledgebaseViewAttrs = {
 	onTemplateSelect: (EmailTemplate) => void,
@@ -49,10 +50,14 @@ export class KnowledgeBaseView implements MComponent<KnowledgebaseViewAttrs> {
 	_pages: Stream<Array<Page>>
 	_inputDom: HTMLElement
 	_scrollDom: HTMLElement
+	_resizeListener: windowSizeListener
 
-	constructor() {
+	constructor({attrs}: Vnode<KnowledgebaseViewAttrs>) {
 		this._searchbarValue = stream("")
 		this._pages = stream([{type: "list"}])
+		this._resizeListener = () => {
+			attrs.model.close()
+		}
 	}
 
 
@@ -61,6 +66,7 @@ export class KnowledgeBaseView implements MComponent<KnowledgebaseViewAttrs> {
 		this._redrawStream = stream.combine(() => {
 			m.redraw()
 		}, [model.selectedEntry, model.filteredEntries])
+
 	}
 
 	onremove() {
@@ -75,7 +81,13 @@ export class KnowledgeBaseView implements MComponent<KnowledgebaseViewAttrs> {
 				height: px(KNOWLEDGEBASE_PANEL_HEIGHT),
 				width: px(KNOWLEDGEBASE_PANEL_WIDTH),
 				top: px(KNOWLEDGEBASE_PANEL_TOP),
-			}
+			},
+			oncreate: () => {
+				windowFacade.addResizeListener(this._resizeListener)
+			},
+			onremove: () => {
+				windowFacade.removeResizeListener(this._resizeListener)
+			},
 		}, [this._renderHeader(attrs), m(".mr-s.", this._renderCurrentPageContent(attrs))])
 	}
 

@@ -22,7 +22,7 @@ export class TemplateExpander implements MComponent<TemplateExpanderAttrs> {
 	view({attrs}: Vnode<TemplateExpanderAttrs>): Children {
 		const {model} = attrs
 		const selectedContent = model.getSelectedContent()
-		return m(".flex.flex-column.flex-grow", {
+		return m(".flex.flex-column.flex-grow.scroll.ml-s", {
 			style: {
 				// maxHeight has to be set, because otherwise the content would overflow outside the flexbox (-44 because of header height)
 				maxHeight: px(TEMPLATE_POPUP_HEIGHT - 44)
@@ -33,7 +33,7 @@ export class TemplateExpander implements MComponent<TemplateExpanderAttrs> {
 				}
 			}
 		}, [
-			m(".scroll.overflow-wrap.flex-grow",
+			m(".overflow-wrap.flex-grow.pr",
 				selectedContent ? m.trust(selectedContent.text) : null
 			)
 		])

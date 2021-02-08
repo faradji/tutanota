@@ -18,6 +18,7 @@ import type {LoginController} from "../api/main/LoginController"
 import type {TemplateGroupRoot} from "../api/entities/tutanota/TemplateGroupRoot"
 import {TemplateGroupModel} from "../templates/TemplateGroupModel"
 import {getElementId, isSameId} from "../api/common/utils/EntityUtils"
+import {KNOWLEDGEBASE_PANEL_WIDTH} from "./KnowledgeBaseView"
 
 export const SELECT_NEXT_ENTRY = "next";
 export const SELECT_PREV_ENTRY = "previous";
@@ -88,6 +89,10 @@ export class KnowledgeBaseModel {
 
 	isSelectedEntry(entry: KnowledgeBaseEntry): boolean {
 		return this.selectedEntry() === entry
+	}
+
+	isScreenWideEnough(): boolean {
+		return window.innerWidth > (800 + KNOWLEDGEBASE_PANEL_WIDTH + 20)
 	}
 
 	containsResult(): boolean {
