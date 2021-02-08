@@ -344,6 +344,7 @@ export const FeatureType = Object.freeze({
 	DisableDefaultSignature: "7",
 	HideBuyDialogs: "8",
 	DisableCalendar: "9",
+	ExternalEmailProvider: "10"
 })
 export type FeatureTypeEnum = $Values<typeof FeatureType>;
 export const ValueToFeatureType: {} = reverse(FeatureType)
