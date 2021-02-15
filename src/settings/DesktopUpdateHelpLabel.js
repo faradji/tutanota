@@ -4,7 +4,6 @@ import m from "mithril"
 import {Icon} from "../gui/base/Icon"
 import {lang} from "../misc/LanguageViewModel"
 import {BootIcons} from "../gui/base/icons/BootIcons"
-import {nativeApp} from '../native/common/NativeWrapper.js'
 import {Request} from "../api/common/WorkerProtocol.js"
 
 export type UpdateHelpLabelAttrs = {
@@ -18,7 +17,8 @@ export class DesktopUpdateHelpLabel {
 	getActionLink(updateAvailable: Stream<boolean>): Child {
 		if (this._waiting || this._error) return null
 
-		const onclick = () => {
+		const onclick = async () => {
+			const {nativeApp} = await import("../native/common/NativeWrapper.js")
 			if (updateAvailable()) {
 				// install now (restarts the app)
 				nativeApp.invokeNative(new Request('manualUpdate', []))
