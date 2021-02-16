@@ -3,6 +3,7 @@ import {nativeApp} from "./NativeWrapper"
 import {Request} from "../../api/common/WorkerProtocol"
 import {uint8ArrayToBase64} from "../../api/common/utils/Encoding"
 import type {MailBundle} from "../../mail/export/Bundler";
+import type {Mail} from "../../api/entities/tutanota/Mail"
 
 
 export const fileApp = {
@@ -15,7 +16,9 @@ export const fileApp = {
 	clearFileData,
 	readFile,
 	saveBlob,
-	mailBundleExport
+	mailBundleExport,
+	queryAvailableMsg,
+	dragExportedMails,
 }
 
 
@@ -130,7 +133,32 @@ export function uriToFileRef(uri: string): Promise<FileReference> {
 	}))
 }
 
+/**
+ * Writes mail bundles as .MSG files in the temp export directory
+ * @param bundles
+ * @returns {Promise<*>}
+ */
 function mailBundleExport(bundles: MailBundle[]): Promise<void> {
 	return nativeApp.invokeNative(new Request("mailBundleExport", [bundles]))
 
+}
+
+/**
+ * Drags mails from the temp export directory as .MSG files, only if they have already been exported
+ * @param bundles
+ * @returns {Promise<*>}
+ */
+function dragExportedMails(ids: IdTuple[]): Promise<void> {
+	return nativeApp.invokeNative(new Request("dragExportedMails", [ids]))
+
+}
+
+/**
+ * Query if mails have already been downloaded
+ *
+ * @param mailIds
+ * @returns list of mailIds that haven't been downloaded
+ */
+function queryAvailableMsg(mails: Array<Mail>): Promise<Array<Mail>> {
+	return nativeApp.invokeNative(new Request("queryAvailableMsgs", [mails]))
 }

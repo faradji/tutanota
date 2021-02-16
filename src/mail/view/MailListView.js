@@ -24,9 +24,11 @@ import {createWriteCounterData} from "../../api/entities/monitor/WriteCounterDat
 import {debounce} from "../../api/common/utils/Utils"
 import {worker} from "../../api/main/WorkerClient"
 import {locator} from "../../api/main/MainLocator"
-import {sortCompareByReverseId} from "../../api/common/utils/EntityUtils";
-import {moveMails, promptAndDeleteMails} from "./MailGuiUtils"
+import {getLetId, isSameId, sortCompareByReverseId} from "../../api/common/utils/EntityUtils";
+import {bundleMails, moveMails, promptAndDeleteMails} from "./MailGuiUtils"
 import {MailRow} from "./MailRow"
+import { uniqueInsert} from "../../api/common/utils/ArrayUtils"
+import {fileApp} from "../../native/common/FileApp"
 
 assertMainOrNode()
 
@@ -82,7 +84,38 @@ export class MailListView implements Component {
 			elementsDraggable: true,
 			multiSelectionAllowed: true,
 			emptyMessage: lang.get("noMails_msg"),
-			listLoadedCompletly: () => this._fixCounterIfNeeded(this.listId, this.list.getLoadedEntities().length)
+			listLoadedCompletly: () => this._fixCounterIfNeeded(this.listId, this.list.getLoadedEntities().length),
+			dragStart: (ev, row, selected) => {
+				if (!ev.altKey) return Promise.resolve(false)
+
+				// The item being dragged hasn't always been selected, if they dont click on it first
+				// TODO dragging should automatically select?
+				// TODO this is wrong actually, if selected.length < 2 then we should choose the one in `row`, if its >= 2 then we take the ones in selected and the ones in row
+				// if only one mail is selected then we should
+				const draggedMail = row.entity
+				const mails = selected.slice()
+				if (draggedMail) uniqueInsert(draggedMail, mails, (a, b) => isSameId(a._id, b._id))
+
+				return fileApp.queryAvailableMsg(mails)
+				              .then(notDownloaded => {
+					              const filter = mail => notDownloaded.find(m => isSameId(mail._id, m._id))
+					              const toDownload = mails.filter(filter)
+					              console.log(toDownload)
+					              // TODO we should query if the attachments have already been downloaded
+					              const numAttachmentsToDownload = toDownload.reduce((count, mail) => count + mail.attachments.length, 0)
+					              console.log(numAttachmentsToDownload)
+					              const bundlePromise = bundleMails(toDownload)
+					              return numAttachmentsToDownload > 0
+						              ? new Promise(resolve => {
+							              // TODO show some indication that the files are downloading, then cancel then download?
+							              resolve(false)
+						              })
+						              : bundlePromise.then(_ => {
+							              fileApp.dragExportedMails(mails.map(getLetId))
+							              return true
+						              })
+				              })
+			}
 		})
 	}
 

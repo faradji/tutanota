@@ -7,6 +7,7 @@ import {getMailBodyText} from "../../api/common/utils/Utils";
 import {FileTypeRef} from "../../api/entities/tutanota/File";
 import {MailHeadersTypeRef} from "../../api/entities/tutanota/MailHeaders";
 import {MailState} from "../../api/common/TutanotaConstants";
+import {getLetId} from "../../api/common/utils/EntityUtils"
 
 /**
  * Used to pass all downloaded mail stuff to the desktop side to be exported as MSG
@@ -15,6 +16,7 @@ import {MailState} from "../../api/common/TutanotaConstants";
  */
 export type MailBundleRecipient = {address: string, name?: string}
 export type MailBundle = {
+	mailId: IdTuple,
 	subject: string,
 	body: string,
 	sender: MailBundleRecipient,
@@ -50,6 +52,7 @@ export function makeMailBundle(mail: Mail, entityClient: EntityClient, worker: W
 	const recipientMapper = addr => ({address: addr.address, name: addr.name})
 	return Promise.all([bodyTextPromise, attachmentsPromise, headersPromise])
 	              .spread((bodyText, attachments, headers) => ({
+		              mailId: getLetId(mail),
 		              subject: mail.subject,
 		              body: bodyText,
 		              sender: recipientMapper(mail.sender),

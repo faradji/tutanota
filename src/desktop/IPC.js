@@ -21,6 +21,10 @@ import {log} from "./DesktopLog";
 import type {DesktopUtils} from "./DesktopUtils"
 import type {DesktopErrorHandler} from "./DesktopErrorHandler"
 import type {DesktopIntegrator} from "./integration/DesktopIntegrator"
+import {mailIdToFileName, makeMsgFile, msgFileExists, writeFilesToTmp} from "./DesktopFileExport"
+import type {Mail} from "../api/entities/tutanota/Mail"
+import {fileExists} from "./PathUtils"
+import {mapAndFilterNullAsync} from "../api/common/utils/ArrayUtils"
 
 /**
  * node-side endpoint for communication between the renderer threads and the node thread
@@ -41,7 +45,7 @@ export class IPC {
 	_electron: $Exports<"electron">;
 	_desktopUtils: DesktopUtils;
 	_err: DesktopErrorHandler;
-	_integrator: DesktopIntegrator ;
+	_integrator: DesktopIntegrator;
 
 	constructor(
 		conf: DesktopConfig,
@@ -254,12 +258,33 @@ export class IPC {
 					? Promise.resolve(this._updater.updateInfo)
 					: Promise.resolve(null)
 			case 'mailBundleExport': {
-				const files = await Promise.all(args[0].map(async (bundle) => await this._desktopUtils.makeMsgFile(bundle)))
-				const dir = await this._desktopUtils.writeFilesToTmp(files)
+				const bundles = args[0]
+				const files = await Promise.all(bundles.map(makeMsgFile))
+				const dir = await writeFilesToTmp(files)
 				// TODO: Are we able to select the files as well?
 				// it's possible to do so with shell.showFileInFolder but that only works for one file
-				this._electron.shell.openPath(dir)
+				// we dont do the open export here, we just save them to the export dir
+				// this._electron.shell.openPath(dir)
 				return
+			}
+			case 'queryAvailableMsgs': {
+				const mails: Array<Mail> = args[0]
+				// return all mails that havent already been exported
+				return mapAndFilterNullAsync(mails, mail => msgFileExists(mail._id)
+					.then(exists => exists ? null : mail))
+			}
+			case 'dragExportedMails': {
+				const ids: Array<IdTuple> = args[0]
+
+				const startDrag = files => {
+					this._wm.get(windowId)?._browserWindow.webContents.startDrag({
+						files,
+						icon: this._electron.nativeImage.createFromDataURL("data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcKICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIgogICB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiCiAgIHhtbG5zOnNvZGlwb2RpPSJodHRwOi8vc29kaXBvZGkuc291cmNlZm9yZ2UubmV0L0RURC9zb2RpcG9kaS0wLmR0ZCIKICAgeG1sbnM6aW5rc2NhcGU9Imh0dHA6Ly93d3cuaW5rc2NhcGUub3JnL25hbWVzcGFjZXMvaW5rc2NhcGUiCiAgIHZpZXdCb3g9IjAgMCAyOTkuOTk5OTkgMzAwIgogICBpZD0ic3ZnMiIKICAgdmVyc2lvbj0iMS4xIgogICBpbmtzY2FwZTp2ZXJzaW9uPSIwLjkxIHIxMzcyNSIKICAgc29kaXBvZGk6ZG9jbmFtZT0ibG9nby1mYXZpY29uLnN2ZyIKICAgd2lkdGg9IjMwMCIKICAgaGVpZ2h0PSIzMDAiPgogIDxtZXRhZGF0YQogICAgIGlkPSJtZXRhZGF0YTM4Ij4KICAgIDxyZGY6UkRGPgogICAgICA8Y2M6V29yawogICAgICAgICByZGY6YWJvdXQ9IiI+CiAgICAgICAgPGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+CiAgICAgICAgPGRjOnR5cGUKICAgICAgICAgICByZGY6cmVzb3VyY2U9Imh0dHA6Ly9wdXJsLm9yZy9kYy9kY21pdHlwZS9TdGlsbEltYWdlIiAvPgogICAgICAgIDxkYzp0aXRsZT48L2RjOnRpdGxlPgogICAgICA8L2NjOldvcms+CiAgICA8L3JkZjpSREY+CiAgPC9tZXRhZGF0YT4KICA8ZGVmcwogICAgIGlkPSJkZWZzMzYiIC8+CiAgPHNvZGlwb2RpOm5hbWVkdmlldwogICAgIHBhZ2Vjb2xvcj0iI2ZmZmZmZiIKICAgICBib3JkZXJjb2xvcj0iIzY2NjY2NiIKICAgICBib3JkZXJvcGFjaXR5PSIxIgogICAgIG9iamVjdHRvbGVyYW5jZT0iMTAiCiAgICAgZ3JpZHRvbGVyYW5jZT0iMTAiCiAgICAgZ3VpZGV0b2xlcmFuY2U9IjEwIgogICAgIGlua3NjYXBlOnBhZ2VvcGFjaXR5PSIwIgogICAgIGlua3NjYXBlOnBhZ2VzaGFkb3c9IjIiCiAgICAgaW5rc2NhcGU6d2luZG93LXdpZHRoPSIxOTIwIgogICAgIGlua3NjYXBlOndpbmRvdy1oZWlnaHQ9IjEwMTYiCiAgICAgaWQ9Im5hbWVkdmlldzM0IgogICAgIHNob3dncmlkPSJmYWxzZSIKICAgICBmaXQtbWFyZ2luLXRvcD0iMCIKICAgICBmaXQtbWFyZ2luLWxlZnQ9IjAiCiAgICAgZml0LW1hcmdpbi1yaWdodD0iMCIKICAgICBmaXQtbWFyZ2luLWJvdHRvbT0iMCIKICAgICBpbmtzY2FwZTp6b29tPSIxLjk0Mzc1IgogICAgIGlua3NjYXBlOmN4PSI4NS4zNDI0NiIKICAgICBpbmtzY2FwZTpjeT0iMTM3Ljg1MjI5IgogICAgIGlua3NjYXBlOndpbmRvdy14PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy15PSIyNyIKICAgICBpbmtzY2FwZTp3aW5kb3ctbWF4aW1pemVkPSIxIgogICAgIGlua3NjYXBlOmN1cnJlbnQtbGF5ZXI9InN2ZzIiIC8+CiAgPGcKICAgICBpZD0iZzI0IgogICAgIHN0eWxlPSJmaWxsOiNhMDFlMjAiCiAgICAgdHJhbnNmb3JtPSJtYXRyaXgoMS4xNjc2NzExLDAsMCwxLjE2NzY3MTEsLTE1NC44OTY0NCwtMjQ4LjIyNzIyKSI+CiAgICA8ZGVmcwogICAgICAgaWQ9ImRlZnMyNiI+CiAgICAgIDxwYXRoCiAgICAgICAgIGQ9Im0gMTU1LjUwMywyMjIuNzk5IGMgLTEyLjY0LDAgLTIyLjg3NSwxMC4yNDYgLTIyLjg3NSwyMi44NzIgbCAwLDIxMS4yMyBjIDAsMC44MDEgMC4wNDYsMS42MDggMC4xMjMsMi4zODggOC41LC0zLjE2NyAxNy41MjQsLTYuNjI5IDI3LjA1NCwtMTAuNDM2IDY2LjMzNiwtMjYuNDggMTIwLjU2OSwtNDguOTk0IDEyMC42MTgsLTc0LjQxNSAwLC0wLjgxNCAtMC4wNTYsLTEuNjM2IC0wLjE3MiwtMi40NTggLTMuNDMsLTI1LjA5OCAtNjMuNDA3LC0zMi44NzkgLTYzLjMyNCwtNDQuMzgxIDAuMDA3LC0wLjYxMSAwLjE4LC0xLjI1IDAuNTQ4LC0xLjg4OSA3LjIwNSwtMTIuNjE5IDM1Ljc0MywtMTIuMDE1IDQ2LjI1MywtMTIuOTA3IDEwLjUxOSwtMC45MTMgMzUuMjA2LC0wLjcyNCAzNi4zOTksLTguMjQ0IDAuMDM1LC0wLjIzMiAwLjA1NywtMC40NjMgMC4wNTcsLTAuNjk1IDAuMDI4LC02Ljk4NyAtMTYuOTc3LC05LjcyNiAtMTYuOTc3LC05LjcyNiAwLDAgMjAuNjM1LDMuMDgzIDIwLjU3OSwxMS4xMSAwLDAuMzkzIC0wLjA0OCwwLjggLTAuMTU4LDEuMjE0IC0yLjIyMiw4LjYyNCAtMjAuMzc5LDEwLjI0NiAtMzIuMzg2LDEwLjgzNSAtMTEuMzU2LDAuNTY5IC0yOC42NDgsMS44NjEgLTI4LjcwNyw3LjQwOCAtMC4wMDcsMC4zMjMgMC4wNDksMC42NiAwLjE2NSwxLjAwNCAyLjcxLDguMTEgNjYuMDksMTIuMDE1IDEwNi42NCwzMy4wNjEgMjMuMzM1LDEyLjA5OSAzNC45NCwzMi40MjIgNDAuMjYzLDUzLjQxOCBsIDAsLTE2Ni41MiBjIDAsLTEyLjYyNiAtMTAuMjQzLC0yMi44NzIgLTIyLjg2OSwtMjIuODcyIGwgLTIxMS4yMzEsMCB6IgogICAgICAgICBpZD0iYSIKICAgICAgICAgaW5rc2NhcGU6Y29ubmVjdG9yLWN1cnZhdHVyZT0iMCIgLz4KICAgIDwvZGVmcz4KICAgIDxjbGlwUGF0aAogICAgICAgaWQ9ImIiPgogICAgICA8dXNlCiAgICAgICAgIGhlaWdodD0iODAwIgogICAgICAgICB3aWR0aD0iMTI4MCIKICAgICAgICAgb3ZlcmZsb3c9InZpc2libGUiCiAgICAgICAgIHhsaW5rOmhyZWY9IiNhIgogICAgICAgICBpZD0idXNlMzAiCiAgICAgICAgIHN0eWxlPSJvdmVyZmxvdzp2aXNpYmxlIgogICAgICAgICB4PSIwIgogICAgICAgICB5PSIwIiAvPgogICAgPC9jbGlwUGF0aD4KICAgIDxwYXRoCiAgICAgICBjbGlwLXBhdGg9InVybCgjYikiCiAgICAgICBkPSJtIDEzMi42MjcsMjIyLjc5OSAyNTYuOTc1LDAgMCwyMzYuNDkgLTI1Ni45NzUsMCB6IgogICAgICAgaWQ9InBhdGgzMiIKICAgICAgIGlua3NjYXBlOmNvbm5lY3Rvci1jdXJ2YXR1cmU9IjAiIC8+CiAgPC9nPgo8L3N2Zz4K")
+					})
+				}
+
+				return Promise.all(ids.map(id => mailIdToFileName(id, ".msg")).filter(fileExists))
+				              .then(startDrag)
 			}
 			default:
 				return Promise.reject(new Error(`Invalid Method invocation: ${method}`))
