@@ -116,7 +116,7 @@ export function mapAndFilterNullAsync<T, R>(array: Array<T>, mapper: mapper<T, $
 	return Promise.all(array.map(mapper)).then(downcast(filterNull))
 }
 
-function filterNull<T>(array: Array<?T>): Array<T> {
+export function filterNull<T>(array: Array<?T>): Array<T> {
 	return downcast(array.filter(item => item != null))
 }
 
@@ -297,13 +297,15 @@ export function binarySearch<T>(ar: Array<T>, el: T, compare_fn: (T, T) => numbe
 }
 
 /**
- * Insert an element into an array if it isn't already in there
+ * Insert an element into an array if it isn't already in there.
  * @param el
- * @param array
+ * @param array the array in which to insert (it will be modified)
  * @param isEqual
+ * @returns the same array that was passed as input
  */
-export function uniqueInsert<T>(el: T, array: Array<T>, isEqual: (T, T) => boolean = (a, b) => a === b) {
+export function uniqueInsert<T>(array: Array<T>, el: T, isEqual: (T, T) => boolean = (a, b) => a === b): Array<T> {
 	if (!array.find(v => isEqual(el, v))) {
 		array.push(el)
 	}
+	return array
 }

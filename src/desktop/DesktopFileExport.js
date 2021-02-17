@@ -1,6 +1,7 @@
 // @flow
 import path from "path"
 import {legalizeFilenames} from "../api/common/utils/FileUtils"
+import type {ValidExtension} from "./PathUtils"
 import {fileExists, isReservedFilename} from "./PathUtils"
 import {promises as fs} from "fs"
 import type {MailBundle} from "../mail/export/Bundler"
@@ -8,7 +9,7 @@ import {app} from 'electron'
 import {Attachment, Email, MessageEditorFormat} from "oxmsg"
 import {downcast} from "../api/common/utils/Utils"
 
-async function getExportDirectoryPath(): Promise<string> {
+export async function getExportDirectoryPath(): Promise<string> {
 	const dirPath = path.join(app.getPath('temp'), 'tutanota', 'msg_export')
 	await fs.mkdir(dirPath, {recursive: true})
 	return dirPath
@@ -16,14 +17,14 @@ async function getExportDirectoryPath(): Promise<string> {
 
 /**
  * Writes files to a new dir in tmp
+ * @param dirPath
  * @param files Array of named content to write to tmp
  * @returns {string} path to the directory in which the files were written
  * */
 // TODO The files are no longer being deleted, as we need them to persist in order for the user to be able to presented them
 // in their file explorer of choice. Do we need to set up some hook to delete it all later? or should we just count on the OS
 // to do it's thing
-export async function writeFilesToTmp(files: Array<{name: string, content: Uint8Array}>): Promise<string> {
-	const dirPath = await getExportDirectoryPath()
+export async function writeFiles(dirPath: string, files: Array<{name: string, content: Uint8Array}>): Promise<string> {
 	const legalNames = legalizeFilenames(files.map(f => f.name), isReservedFilename)
 	const legalFiles = files.map(f => ({
 		content: f.content,
@@ -33,6 +34,13 @@ export async function writeFilesToTmp(files: Array<{name: string, content: Uint8
 		await fs.writeFile(path.join(dirPath, file.name), file.content)
 	}
 	return dirPath
+}
+
+export async function writeFile(dirPath: string, file: {name: string, content: Uint8Array}): Promise<string> {
+	const legalName = legalizeFilenames([file.name], isReservedFilename)[file.name][0]
+	const fullPath = path.join(dirPath, legalName)
+	await fs.writeFile(fullPath, file.content)
+	return fullPath
 }
 
 export async function makeMsgFile(bundle: MailBundle): Promise<{name: string, content: Uint8Array}> {
@@ -57,7 +65,7 @@ export async function makeMsgFile(bundle: MailBundle): Promise<{name: string, co
 		email.attach(new Attachment(new Uint8Array(attachment.data), attachment.name, attachment.cid || ""))
 	}
 
-	return {name: mailIdToFileName(bundle.mailId, ".msg"), content: email.msg()}
+	return {name: mailIdToFileName(bundle.mailId, "msg"), content: email.msg()}
 }
 
 
@@ -65,8 +73,7 @@ export async function msgFileExists(id: IdTuple): Promise<boolean> {
 	const exportDir = await getExportDirectoryPath()
 
 	// successful call to stat means the file exists. it should be valid because the only reason it's there is because we made it
-	const exists = await fileExists(path.join(exportDir, mailIdToFileName(id, ".msg")))
-	console.log(id, "exists: ", exists)
+	const exists = await fileExists(path.join(exportDir, mailIdToFileName(id, "msg")))
 	return exists
 }
 
@@ -78,7 +85,7 @@ const idDelimiter = "__"
  * @param extension: file extension without the leading dot
  * @returns {string}
  */
-export function mailIdToFileName(id: IdTuple, extension: string): string {
+export function mailIdToFileName(id: IdTuple, extension: ValidExtension): string {
 	return id.join(idDelimiter) + (extension && `.${extension}`)
 }
 

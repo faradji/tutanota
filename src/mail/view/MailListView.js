@@ -21,14 +21,15 @@ import {ButtonColors, ButtonN, ButtonType} from "../../gui/base/ButtonN"
 import {Dialog} from "../../gui/base/Dialog"
 import {MonitorService} from "../../api/entities/monitor/Services"
 import {createWriteCounterData} from "../../api/entities/monitor/WriteCounterData"
-import {debounce} from "../../api/common/utils/Utils"
+import {assertNotNull, debounce, neverNull} from "../../api/common/utils/Utils"
 import {worker} from "../../api/main/WorkerClient"
 import {locator} from "../../api/main/MainLocator"
-import {getLetId, isSameId, sortCompareByReverseId} from "../../api/common/utils/EntityUtils";
-import {bundleMails, moveMails, promptAndDeleteMails} from "./MailGuiUtils"
+import {getLetId, haveSameId, isSameId, sortCompareByReverseId} from "../../api/common/utils/EntityUtils";
+import {bundleMail, bundleMails, moveMails, promptAndDeleteMails} from "./MailGuiUtils"
 import {MailRow} from "./MailRow"
-import { uniqueInsert} from "../../api/common/utils/ArrayUtils"
+import {uniqueInsert} from "../../api/common/utils/ArrayUtils"
 import {fileApp} from "../../native/common/FileApp"
+import {makeTrackedProgressMonitor, ProgressMonitor} from "../../api/common/utils/ProgressMonitor"
 
 assertMainOrNode()
 
@@ -40,9 +41,15 @@ export class MailListView implements Component {
 	mailView: MailView;
 	list: List<Mail, MailRow>;
 
+	// Mails that are currently being downloaded for export
+	// We don't currently actually care about the contents of the promise, we only want to wait on them
+	mailsBeingBundled: Map<string, Promise<*>>
+
 	constructor(mailListId: Id, mailView: MailView) {
+
 		this.listId = mailListId
 		this.mailView = mailView
+		this.mailsBeingBundled = new Map();
 
 		this.list = new List({
 			rowHeight: size.list_row_height,
@@ -85,36 +92,87 @@ export class MailListView implements Component {
 			multiSelectionAllowed: true,
 			emptyMessage: lang.get("noMails_msg"),
 			listLoadedCompletly: () => this._fixCounterIfNeeded(this.listId, this.list.getLoadedEntities().length),
-			dragStart: (ev, row, selected) => {
-				if (!ev.altKey) return Promise.resolve(false)
+			dragStart: (ev, row, selected: $ReadOnlyArray<Mail>) => {
+				if (!ev.altKey) return false
+				assertNotNull(document.body).style.cursor = "grabbing"
+				console.log(this.mailsBeingBundled)
 
-				// The item being dragged hasn't always been selected, if they dont click on it first
-				// TODO dragging should automatically select?
-				// TODO this is wrong actually, if selected.length < 2 then we should choose the one in `row`, if its >= 2 then we take the ones in selected and the ones in row
-				// if only one mail is selected then we should
-				const draggedMail = row.entity
-				const mails = selected.slice()
-				if (draggedMail) uniqueInsert(draggedMail, mails, (a, b) => isSameId(a._id, b._id))
+				// function onWindowLeft(e) {
+				// 	if (!e.fromElement) {
+				// 		assertNotNull(document.body).style.cursor = "no-drop"
+				// 	}
+				// }
+				// window.addEventListener("dragleave", onWindowLeft)
 
-				return fileApp.queryAvailableMsg(mails)
-				              .then(notDownloaded => {
-					              const filter = mail => notDownloaded.find(m => isSameId(mail._id, m._id))
-					              const toDownload = mails.filter(filter)
-					              console.log(toDownload)
-					              // TODO we should query if the attachments have already been downloaded
-					              const numAttachmentsToDownload = toDownload.reduce((count, mail) => count + mail.attachments.length, 0)
-					              console.log(numAttachmentsToDownload)
-					              const bundlePromise = bundleMails(toDownload)
-					              return numAttachmentsToDownload > 0
-						              ? new Promise(resolve => {
-							              // TODO show some indication that the files are downloading, then cancel then download?
-							              resolve(false)
-						              })
-						              : bundlePromise.then(_ => {
-							              fileApp.dragExportedMails(mails.map(getLetId))
-							              return true
-						              })
-				              })
+				// TODO not sure if we can assert not null here? i dont think it's possible for the mail list to have an entry that is not a Mail
+				const selectedMail = assertNotNull(row.entity)
+
+				// If zero or one items are selected, then we should choose the one being dragged.
+				// if multiple items are selected, then we include them + the one being dragged, if it's not already included
+				// TODO should we have the row be automatically selected upon drag? This would have to happen in List, shouldn't be more complicated then adding the row into selectedEntities (i hope)
+				const draggedMails = selected.length < 2
+					? [selectedMail]
+					: uniqueInsert(selected.slice(), selectedMail, haveSameId)
+
+				const dragEndPromise = new Promise(resolve => {
+					function onDragEnd() {
+						document.removeEventListener("dragend", onDragEnd)
+						resolve(false)
+					}
+
+					document.addEventListener("dragend", onDragEnd)
+				})
+
+				fileApp.queryAvailableMsg(draggedMails)
+				       .then(notDownloaded => {
+					       const notDownloadedMails =
+						       draggedMails.filter(mail => notDownloaded.find(m => haveSameId(m, mail)))
+
+					       const download = notDownloadedMails.length > 0
+						       ? () =>
+							       Promise.all(notDownloadedMails.map(mail => {
+								       const downloadProgressMonitorHandle = locator.progressTracker.registerMonitor(1);
+								       // If a mail was started downloading in the last drag, and we try to drag it again while it's not yet finished,
+								       // then we should grab the promise that has already been created for it, otherwise make a new one
+								       const id = mail._id.join()
+								       console.log("mail if with id", id, (this.mailsBeingBundled.has(id) ? "already started" : "starting now"))
+								       if (this.mailsBeingBundled.has(id)) {
+									       return neverNull(this.mailsBeingBundled.get(id))
+								       } else {
+									       const progressMonitor = makeTrackedProgressMonitor(locator.progressTracker, 1)
+									       const bundlePromise = bundleMail(mail)
+										       .tap(() => progressMonitor.workDone(1))
+										       .then(fileApp.saveBundleAsMsg)
+										       .then(() => this.mailsBeingBundled.delete(id))
+										       .then(() => {
+											       console.log("completed!");
+											       progressMonitor.workDone(1)
+										       })
+									       this.mailsBeingBundled.set(id, bundlePromise)
+									       return bundlePromise
+								       }
+
+							       }))
+							              .then(() => assertNotNull(document.body).style.cursor = "default")
+							              .return(true)
+						       : () => Promise.resolve(true)
+
+					       Promise.race([download(), dragEndPromise])
+					              .then(didComplete => {
+						              ev.preventDefault()
+						              console.log("race finished", ev)
+						              // window.removeEventListener("dragleave", onWindowLeft)
+						              if (didComplete) {
+							              console.log("all ready")
+							              fileApp.dragExportedMails(draggedMails.map(getLetId))
+						              } else {
+							              // Show progress in the UI
+							              assertNotNull(document.body).style.cursor = "progress"
+							              console.log("too fast!")
+						              }
+					              })
+				       })
+				return true
 			}
 		})
 	}

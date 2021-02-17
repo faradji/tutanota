@@ -5,6 +5,9 @@ import {sanitizeFilename} from "../api/common/utils/FileUtils"
 import {neverNull} from "../api/common/utils/Utils"
 import {promises as fs} from "fs"
 
+// Add to me
+export type ValidExtension = "msg"
+
 /**
  * @param pathToConvert absolute Path to a file
  * @returns {string} file:// URL that can be extended with query parameters and loaded with BrowserWindow.loadURL()

@@ -19,6 +19,7 @@ export const fileApp = {
 	mailBundleExport,
 	queryAvailableMsg,
 	dragExportedMails,
+	saveBundleAsMsg
 }
 
 
@@ -140,7 +141,15 @@ export function uriToFileRef(uri: string): Promise<FileReference> {
  */
 function mailBundleExport(bundles: MailBundle[]): Promise<void> {
 	return nativeApp.invokeNative(new Request("mailBundleExport", [bundles]))
+}
 
+/**
+ * Generate an MSG file from the mail bundle and save it in the temp export directory
+ * @param bundle
+ * @returns {Promise<*>}
+ */
+function saveBundleAsMsg(bundle: MailBundle): Promise<void> {
+	return nativeApp.invokeNative(new Request("saveBundleAsMsg", [bundle]))
 }
 
 /**
@@ -150,7 +159,6 @@ function mailBundleExport(bundles: MailBundle[]): Promise<void> {
  */
 function dragExportedMails(ids: IdTuple[]): Promise<void> {
 	return nativeApp.invokeNative(new Request("dragExportedMails", [ids]))
-
 }
 
 /**

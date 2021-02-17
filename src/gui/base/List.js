@@ -338,20 +338,12 @@ export class List<T: ListElement, R:VirtualRow<T>> {
 
 	_dragstart(ev: DragEvent, virtualRow: VirtualRow<T>) {
 
-		const handler = this._config.dragStart
-			? this._config.dragStart(ev, virtualRow, this._selectedEntities)
-			: Promise.resolve(false)
-
-		handler.then(preventDefault => {
-			if (preventDefault) {
-				ev.preventDefault()
-			} else {
-				// TODO whatever this comment is referring to is probably no longer relevant?
-				// come back to this before merge to master
-				// unfortunately, IE only allows "text" and "url"
-				neverNull(ev.dataTransfer).setData("text", getLetId(neverNull(virtualRow.entity))[1]);
-			}
-		})
+		if (!this._config.dragStart || !this._config.dragStart(ev, virtualRow, this._selectedEntities)) {
+			// TODO whatever this comment is referring to is probably no longer relevant?
+			// come back to this before merge to master
+			// unfortunately, IE only allows "text" and "url"
+			neverNull(ev.dataTransfer).setData("text", getLetId(neverNull(virtualRow.entity))[1]);
+		}
 	}
 
 	getEntity(id: Id): ?T {
