@@ -131,8 +131,10 @@ export class MailListView implements Component {
 							       } else {
 								       const progressMonitor = makeTrackedProgressMonitor(locator.progressTracker, 1)
 								       const bundlePromise = bundleMail(mail)
-									       .tap(() => progressMonitor.workDone(1))
-									       .then(fileApp.saveBundleAsMsg)
+									       .then(bundle => {
+										       progressMonitor.workDone(1)
+										       return fileApp.saveBundleAsMsg(bundle)
+									       })
 									       .then(() => {
 										       progressMonitor.workDone(1)
 										       this.mailsBeingBundled.delete(id)
@@ -140,7 +142,9 @@ export class MailListView implements Component {
 								       this.mailsBeingBundled.set(id, bundlePromise)
 								       return bundlePromise
 							       }
-						       })).then(() => {assertNotNull(document.body).style.cursor = "default"}).return(true)
+						       }))
+						                .then(() => {assertNotNull(document.body).style.cursor = "default"})
+						                .then(() => true)
 						       : Promise.resolve(true)
 
 					       // If the download completes before the user releases their mouse, then we can call electron start drag and do the operation
