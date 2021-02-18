@@ -92,35 +92,25 @@ export class MailListView implements Component {
 			multiSelectionAllowed: true,
 			emptyMessage: lang.get("noMails_msg"),
 			listLoadedCompletly: () => this._fixCounterIfNeeded(this.listId, this.list.getLoadedEntities().length),
-			dragStart: (ev, row, selected: $ReadOnlyArray<Mail>) => {
-				if (!ev.altKey) return false
+			dragStart: (event, row, selected: $ReadOnlyArray<Mail>) => {
+				if (!event.altKey) return false
+				// We have to preventDefault or we get mysterious and inconsistent electron crashes at the call to startDrag in IPC
+				event.preventDefault()
 				assertNotNull(document.body).style.cursor = "grabbing"
-				console.log(this.mailsBeingBundled)
-
-				// function onWindowLeft(e) {
-				// 	if (!e.fromElement) {
-				// 		assertNotNull(document.body).style.cursor = "no-drop"
-				// 	}
-				// }
-				// window.addEventListener("dragleave", onWindowLeft)
 
 				// TODO not sure if we can assert not null here? i dont think it's possible for the mail list to have an entry that is not a Mail
 				const selectedMail = assertNotNull(row.entity)
 
 				// If zero or one items are selected, then we should choose the one being dragged.
 				// if multiple items are selected, then we include them + the one being dragged, if it's not already included
-				// TODO should we have the row be automatically selected upon drag? This would have to happen in List, shouldn't be more complicated then adding the row into selectedEntities (i hope)
 				const draggedMails = selected.length < 2
 					? [selectedMail]
 					: uniqueInsert(selected.slice(), selectedMail, haveSameId)
 
-				const dragEndPromise = new Promise(resolve => {
-					function onDragEnd() {
-						document.removeEventListener("dragend", onDragEnd)
-						resolve(false)
-					}
-
-					document.addEventListener("dragend", onDragEnd)
+				// We listen to mouseup to detect if the user released the mouse before the download was complete
+				// we can't use dragend because we broke the DragEvent chain by calling prevent default
+				const mouseupPromise = new Promise(resolve => {
+					document.addEventListener("mouseup", () => resolve(false), {once: true})
 				})
 
 				fileApp.queryAvailableMsg(draggedMails)
@@ -128,47 +118,41 @@ export class MailListView implements Component {
 					       const notDownloadedMails =
 						       draggedMails.filter(mail => notDownloaded.find(m => haveSameId(m, mail)))
 
+					       // if we need to download any mails, first we check if any have been started downloading already (by a previous incomplete drag operation)
+					       // if there are we take those, otherwise we start downloading
 					       const download = notDownloadedMails.length > 0
-						       ? () =>
-							       Promise.all(notDownloadedMails.map(mail => {
-								       const downloadProgressMonitorHandle = locator.progressTracker.registerMonitor(1);
-								       // If a mail was started downloading in the last drag, and we try to drag it again while it's not yet finished,
-								       // then we should grab the promise that has already been created for it, otherwise make a new one
-								       const id = mail._id.join()
-								       console.log("mail if with id", id, (this.mailsBeingBundled.has(id) ? "already started" : "starting now"))
-								       if (this.mailsBeingBundled.has(id)) {
-									       return neverNull(this.mailsBeingBundled.get(id))
-								       } else {
-									       const progressMonitor = makeTrackedProgressMonitor(locator.progressTracker, 1)
-									       const bundlePromise = bundleMail(mail)
-										       .tap(() => progressMonitor.workDone(1))
-										       .then(fileApp.saveBundleAsMsg)
-										       .then(() => this.mailsBeingBundled.delete(id))
-										       .then(() => {
-											       console.log("completed!");
-											       progressMonitor.workDone(1)
-										       })
-									       this.mailsBeingBundled.set(id, bundlePromise)
-									       return bundlePromise
-								       }
+						       ? Promise.all(notDownloadedMails.map(mail => {
+							       const downloadProgressMonitorHandle = locator.progressTracker.registerMonitor(1);
+							       // If a mail was started downloading in the last drag, and we try to drag it again while it's not yet finished,
+							       // then we should grab the promise that has already been created for it, otherwise make a new one
+							       const id = mail._id.join()
+							       if (this.mailsBeingBundled.has(id)) {
+								       return neverNull(this.mailsBeingBundled.get(id))
+							       } else {
+								       const progressMonitor = makeTrackedProgressMonitor(locator.progressTracker, 1)
+								       const bundlePromise = bundleMail(mail)
+									       .tap(() => progressMonitor.workDone(1))
+									       .then(fileApp.saveBundleAsMsg)
+									       .then(() => {
+										       progressMonitor.workDone(1)
+										       this.mailsBeingBundled.delete(id)
+									       })
+								       this.mailsBeingBundled.set(id, bundlePromise)
+								       return bundlePromise
+							       }
+						       })).then(() => {assertNotNull(document.body).style.cursor = "default"}).return(true)
+						       : Promise.resolve(true)
 
-							       }))
-							              .then(() => assertNotNull(document.body).style.cursor = "default")
-							              .return(true)
-						       : () => Promise.resolve(true)
-
-					       Promise.race([download(), dragEndPromise])
+					       // If the download completes before the user releases their mouse, then we can call electron start drag and do the operation
+					       // otherwise we have to give some kind of feedback to the user that the drop was unsuccessful
+					       Promise.race([download, mouseupPromise])
 					              .then(didComplete => {
-						              ev.preventDefault()
-						              console.log("race finished", ev)
-						              // window.removeEventListener("dragleave", onWindowLeft)
 						              if (didComplete) {
-							              console.log("all ready")
+							              // do the drag unimpeded
 							              fileApp.dragExportedMails(draggedMails.map(getLetId))
 						              } else {
 							              // Show progress in the UI
 							              assertNotNull(document.body).style.cursor = "progress"
-							              console.log("too fast!")
 						              }
 					              })
 				       })
