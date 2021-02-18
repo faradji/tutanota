@@ -26,7 +26,7 @@ export class TemplateDetailsViewer {
 	constructor(template: EmailTemplate, entityClient: EntityClient) {
 		const tagAttrs: TextFieldAttrs = {
 			label: "tag_label",
-			value: stream(neverNull(template.tag)),
+			value: stream("#" + neverNull(template.tag)),
 			disabled: true
 		}
 

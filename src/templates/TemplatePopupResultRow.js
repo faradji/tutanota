@@ -24,12 +24,12 @@ export class TemplatePopupResultRow implements MComponent<TemplateResultRowAttrs
 		}, [
 			m(".text-ellipsis", title),
 			m(".flex.badge-line-height.text-ellipsis", [
-				tag ? m(".b.small.teamLabel.pl-s.pr-s.border-radius.no-wrap.small.mr-s", {
+				tag ? m(".small.bubbleTag-no-padding.pl-s.pr-s.border-radius.no-wrap.small", {
 					style: {
 						width: "min-content",
 						height: "min-content",
 					}
-				}, tag.toLowerCase()) : null,
+				}, "#" + tag.toLowerCase()) : null,
 			]),
 		])
 	}

@@ -216,7 +216,7 @@ export class TemplatePopup implements ModalComponent {
 		return m("", {
 			onkeydown: (e) => {
 				// prevents tabbing into the background of the modal
-				if (isKeyPressed(e.keyCode, Keys.TAB)) {
+				if (isKeyPressed(e.keyCode, Keys.TAB) && !this._templateModel.getSelectedTemplate()) {
 					this._inputDom.focus()
 					e.preventDefault()
 				}
@@ -273,6 +273,7 @@ export class TemplatePopup implements ModalComponent {
 						click: (e) => {
 							e.stopPropagation()
 							this._templateModel.setSelectedContent(content)
+							this._inputDom.focus()
 						},
 					}
 				}
@@ -303,7 +304,15 @@ export class TemplatePopup implements ModalComponent {
 				colors: ButtonColors.DrawerNav,
 			}),
 			m(".pr-s", m(".nav-bar-spacer")),
-			m(ButtonN, this._selectTemplateButtonAttrs),
+			m("", {
+				onkeydown: (e) => {
+					// prevents tabbing into the background of the modal
+					if (isKeyPressed(e.keyCode, Keys.TAB)) {
+						this._inputDom.focus()
+						e.preventDefault()
+					}
+				}
+			},m(ButtonN, this._selectTemplateButtonAttrs)),
 		]
 	}
 
