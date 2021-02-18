@@ -285,8 +285,16 @@ export class Editor implements ImageHandler {
 		range.selectNode(this._squire.getRoot())
 		this._squire.removeAllFormatting(range)
 	}
-	
+
 	getSelectedText(): string {
 		return this._squire.getSelectedText()
+	}
+
+	addEventListener(type: string, handler: (Event) => void) {
+		this._squire.addEventListener(type, handler)
+	}
+
+	setSelection(range: Range) {
+		this._squire.setSelection(range)
 	}
 }

@@ -13,7 +13,7 @@ import {TemplatePopupResultRow} from "./TemplatePopupResultRow"
 import {Icons} from "../gui/base/icons/Icons"
 import {Icon} from "../gui/base/Icon"
 import {TemplateExpander} from "./TemplateExpander"
-import {lang} from "../misc/LanguageViewModel"
+import {lang, languageByCode} from "../misc/LanguageViewModel"
 import {Dialog} from "../gui/base/Dialog"
 import {windowFacade} from "../misc/WindowFacade"
 import type {EmailTemplate} from "../api/entities/tutanota/EmailTemplate"
@@ -21,7 +21,7 @@ import type {ButtonAttrs} from "../gui/base/ButtonN"
 import {ButtonColors, ButtonN, ButtonType} from "../gui/base/ButtonN"
 import {SELECT_NEXT_TEMPLATE, SELECT_PREV_TEMPLATE, TemplateModel} from "./TemplateModel"
 import {attachDropdown} from "../gui/base/DropdownN"
-import {assertNotNull, neverNull, noOp} from "../api/common/utils/Utils"
+import {downcast, neverNull, noOp} from "../api/common/utils/Utils"
 import {locator} from "../api/main/MainLocator"
 import {TemplateGroupRootTypeRef} from "../api/entities/tutanota/TemplateGroupRoot"
 import {showTemplateEditor} from "../settings/TemplateEditor"
@@ -40,8 +40,8 @@ export const TEMPLATE_LIST_ENTRY_WIDTH = 354;
  */
 
 
-export function showTemplatePopupInEditor(editor: Editor, template: ?EmailTemplate) {
-	const initialSearchString = template ? "#" + template.tag : ""
+export function showTemplatePopupInEditor(editor: Editor, template: ?EmailTemplate, highlightedText: string) {
+	const initialSearchString = template ? "#" + template.tag : highlightedText
 	const cursorRect = editor.getCursorPosition()
 	const editorRect = editor.getDOM().getBoundingClientRect();
 	const onsubmit = (text) => {
@@ -129,9 +129,7 @@ export class TemplatePopup implements ModalComponent {
 					this._close()
 				}
 			},
-			type: ButtonType.ActionLarge,
-			icon: () => Icons.Checkmark,
-			colors: ButtonColors.DrawerNav,
+			type: ButtonType.Primary,
 		}
 		templateModel.search(initialSearchString)
 
@@ -161,7 +159,12 @@ export class TemplatePopup implements ModalComponent {
 			}, [
 				this._renderHeader(),
 				m(".flex.flex-grow.scroll.mb-s", [
-					m(".flex.flex-column.scroll" + (showTwoColumns ? ".pr" : ""), {style: {flex: '1 1 40%'}}, this._renderLeftColumn()),
+					m(".flex.flex-column.scroll" + (showTwoColumns ? ".pr" : ""), {
+						style: {
+							flex: '1 1 40%'
+						},
+						oncreate: (vnode) => this._scrollDom = vnode.dom
+					}, this._renderLeftColumn()),
 					showTwoColumns ? m(".flex.flex-column.flex-grow-shrink-half", {style: {flex: '1 1 60%'}}, this._renderRightColumn()) : null,
 				])
 			],
@@ -170,13 +173,15 @@ export class TemplatePopup implements ModalComponent {
 
 	_renderHeader(): Children {
 		const selectedTemplate = this._templateModel.getSelectedTemplate()
-		return m(".flex-space-between.center-vertically.pl", [
-			this._renderSearchBar(),
+		return m(".flex-space-between.center-vertically.pl.pr-s", [
+			m(".flex-start", [
+				m(".flex.center-vertically", this._renderSearchBar()),
+				this._renderAddButton(),
+			]),
 			m(".flex-end", [
 				selectedTemplate
 					? this._renderEditButtons(selectedTemplate) // Right header wrapper
 					: null,
-				this._renderAddButton()
 			])
 		])
 	}
@@ -258,13 +263,12 @@ export class TemplatePopup implements ModalComponent {
 			m(ButtonN, attachDropdown({
 					label: () => selectedContent ? selectedContent.languageCode + ' ▼' : "",
 					title: "chooseLanguage_action",
-					type: ButtonType.Toggle,
+					type: ButtonType.Secondary,
 					click: noOp,
 					noBubble: true,
-					colors: ButtonColors.DrawerNav
 				}, () => selectedTemplate.contents.map(content => {
 					return {
-						label: () => content.languageCode,
+						label: () => lang.get(languageByCode[downcast(content.languageCode)].textId),
 						type: ButtonType.Dropdown,
 						click: (e) => {
 							e.stopPropagation()
@@ -274,7 +278,6 @@ export class TemplatePopup implements ModalComponent {
 				}
 				)
 			)),
-			m(ButtonN, this._selectTemplateButtonAttrs),
 			m(ButtonN, {
 				label: "editTemplate_action",
 				click: () => {
@@ -298,19 +301,18 @@ export class TemplatePopup implements ModalComponent {
 				type: ButtonType.ActionLarge,
 				icon: () => Icons.Trash,
 				colors: ButtonColors.DrawerNav,
-			})
+			}),
+			m(".pr-s", m(".nav-bar-spacer")),
+			m(ButtonN, this._selectTemplateButtonAttrs),
 		]
 	}
 
 	_renderLeftColumn(): Children {
 		return [
-			m(".flex.flex-column", { // left list
-					oncreate: (vnode) => {
-						this._scrollDom = vnode.dom
-					},
-				}, this._templateModel.containsResult() ?
-				this._templateModel.getSearchResults()().map((template, index) => this._renderTemplateListRow(template, index))
-				: m(".row-selected.text-center.pt", lang.get(this._templateModel.hasLoaded() ? "nothingFound_label" : "loadingTemplates_label"))
+			m(".flex.flex-column",
+				this._templateModel.containsResult() ?
+					this._templateModel.getSearchResults()().map((template, index) => this._renderTemplateListRow(template, index))
+					: m(".row-selected.text-center.pt", lang.get(this._templateModel.hasLoaded() ? "nothingFound_label" : "loadingTemplates_label"))
 			), // left end
 		]
 	}

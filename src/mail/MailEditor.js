@@ -6,7 +6,7 @@ import {Editor} from "../gui/base/Editor"
 import type {Attachment, Recipients, ResponseMailParameters} from "./SendMailModel"
 import {defaultSendMailModel, mailAddressToRecipient, SendMailModel} from "./SendMailModel"
 import {Dialog} from "../gui/base/Dialog"
-import {lang} from "../misc/LanguageViewModel"
+import {getLanguage, lang, languageByCode} from "../misc/LanguageViewModel"
 import type {MailboxDetail} from "./MailModel"
 import {checkApprovalStatus} from "../misc/LoginUtils"
 import {
@@ -27,7 +27,7 @@ import {FileNotFoundError} from "../api/common/error/FileNotFoundError"
 import {PreconditionFailedError} from "../api/common/error/RestError"
 import type {DialogHeaderBarAttrs} from "../gui/base/DialogHeaderBar"
 import {ButtonN, ButtonType} from "../gui/base/ButtonN"
-import {attachDropdown, createDropdown} from "../gui/base/DropdownN"
+import {attachDropdown, createDropdown, DropdownN} from "../gui/base/DropdownN"
 import {fileController} from "../file/FileController"
 import {RichTextToolbar} from "../gui/base/RichTextToolbar"
 import {isApp, isBrowser, isDesktop} from "../api/Env"
@@ -55,14 +55,15 @@ import type {Mail} from "../api/entities/tutanota/Mail"
 import type {File as TutanotaFile} from "../api/entities/tutanota/File"
 import type {InlineImages} from "./MailViewer"
 import {FileOpenError} from "../api/common/error/FileOpenError"
-import {assertNotNull, downcast, noOp, defer} from "../api/common/utils/Utils"
+import {downcast, noOp, defer} from "../api/common/utils/Utils"
 import {showUpgradeWizard} from "../subscription/UpgradeSubscriptionWizard"
-import {DomRectReadOnlyPolyfilled} from "../gui/base/Dropdown"
-import {showTemplatePopupInEditor, TEMPLATE_POPUP_HEIGHT, TemplatePopup} from "../templates/TemplatePopup"
+import {showTemplatePopupInEditor} from "../templates/TemplatePopup"
 import {showUserError} from "../misc/ErrorHandlerImpl"
 import {formatPrice} from "../subscription/PriceUtils"
 import {KnowledgeBaseView} from "../knowledgebase/KnowledgeBaseView"
 import type {ButtonAttrs} from "../gui/base/ButtonN"
+import {isKeyPressed} from "../misc/KeyManager"
+import {modal} from "../gui/base/Modal"
 
 export type MailEditorAttrs = {
 	model: SendMailModel,
@@ -104,7 +105,7 @@ export class MailEditor implements MComponent<MailEditorAttrs> {
 	objectUrls: Array<string>
 	mentionedInlineImages: Array<string>
 	inlineImageElements: Array<HTMLElement>
-
+	_currentCursorPosition: Range
 
 	constructor(vnode: Vnode<MailEditorAttrs>) {
 
@@ -142,6 +143,57 @@ export class MailEditor implements MComponent<MailEditorAttrs> {
 
 			// since the editor is the source for the body text, the model won't know if the body has changed unless we tell it
 			this.editor.addChangeListener(() => model.setBody(replaceInlineImagesWithCids(this.editor.getDOM()).innerHTML))
+
+			// add this event listener to handle quick selection of templates inside the editor
+			this.editor.addEventListener("keydown", (event) => {
+				if (isKeyPressed(downcast(event).keyCode, Keys.TAB)) {
+					const cursorEndPos = this._currentCursorPosition
+					const text = cursorEndPos.startContainer.nodeType === Node.TEXT_NODE ? cursorEndPos.startContainer.textContent : ""
+					const templateShortcutStartIndex = text.lastIndexOf("#")
+					const lastWhiteSpaceIndex = text.lastIndexOf('\xa0')
+					console.log("Whitespace", lastWhiteSpaceIndex, "# index", templateShortcutStartIndex, "Text", text)
+					if (templateShortcutStartIndex !== -1 && templateShortcutStartIndex < cursorEndPos.startOffset
+						&& templateShortcutStartIndex > lastWhiteSpaceIndex) {
+						// stopPropagation & preventDefault to prevent tabbing to "close" button or tabbing into background
+						event.stopPropagation()
+						event.preventDefault()
+
+						const range = document.createRange()
+						range.setStart(cursorEndPos.startContainer, templateShortcutStartIndex)
+						range.setEnd(cursorEndPos.startContainer, cursorEndPos.startOffset)
+						this.editor.setSelection(range)
+
+						// find and insert template
+						const templateModel = locator.templateModel
+						templateModel.init().then(() => {
+							const template = templateModel.findTemplateWithTag(this.editor.getSelectedText())
+							if (template) {
+								if (template.contents.length > 1) { // multiple languages
+									// show dropdown to select language
+									let buttons = template.contents.map(content => {
+										return {
+											label: () => lang.get(languageByCode[downcast(content.languageCode)].textId),
+											click: () => {
+												this.editor.insertHTML(content.text)
+											},
+											type: ButtonType.Dropdown
+										}
+									})
+									const dropdown = new DropdownN(() => buttons, 200)
+									dropdown.setOrigin(this.editor.getCursorPosition())
+									modal.displayUnique(dropdown, false)
+								} else {
+									this.editor.insertHTML(template.contents[0].text)
+								}
+							}
+						})
+					}
+				}
+			})
+
+			this.editor.addEventListener("cursor", (event) => {
+				this._currentCursorPosition = downcast(event).range
+			})
 		})
 
 		a._editor = this.editor
@@ -521,7 +573,7 @@ function createMailEditorDialog(model: SendMailModel, blockExternalContent: bool
 				? m(KnowledgeBaseView, {
 					onTemplateSelect: (template) => {
 						editorDeferred.promise.then((editor) => {
-							showTemplatePopupInEditor(editor, template)
+							showTemplatePopupInEditor(editor, template, "")
 						})
 					},
 					model: locator.knowledgebase
@@ -590,7 +642,7 @@ function createMailEditorDialog(model: SendMailModel, blockExternalContent: bool
 
 function openTemplateFeature(editor: ?Editor) {
 	if (editor) {
-		showTemplatePopupInEditor(editor, null)
+		showTemplatePopupInEditor(editor, null, editor.getSelectedText())
 	}
 }
 

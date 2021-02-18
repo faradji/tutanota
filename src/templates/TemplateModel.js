@@ -13,7 +13,6 @@ import type {LoginController} from "../api/main/LoginController"
 import {TemplateGroupModel} from "./TemplateGroupModel"
 import {getElementId, isSameId} from "../api/common/utils/EntityUtils"
 import type {EmailTemplateContent} from "../api/entities/tutanota/EmailTemplateContent"
-import type {TemplateGroupRoot} from "../api/entities/tutanota/TemplateGroupRoot"
 import {neverNull} from "../api/common/utils/Utils"
 import type {TemplateGroupInstances} from "./TemplateGroupModel"
 
@@ -58,7 +57,7 @@ export class TemplateModel {
 		this._eventController.addEntityListener(this._entityEventReceived)
 	}
 
-	init(): Promise<void> {
+	init(): Promise<void> { //TODO: Discuss
 		const allEmailTemplates = []
 		return this._templateGroupModel.init().then(templateGroupInstances => {
 			return Promise.each(templateGroupInstances, templateGroupInstance => {
@@ -98,6 +97,7 @@ export class TemplateModel {
 	getSelectedTemplate(): ?EmailTemplate {
 		return this._selectedTemplate
 	}
+
 	getSelectedTemplateGroupRoot(): ?TemplateGroupInstances {
 		const selected = this._selectedTemplate
 		if (selected) {
@@ -165,6 +165,11 @@ export class TemplateModel {
 		this._eventController.removeEntityListener(this._entityEventReceived)
 	}
 
+	findTemplateWithTag(selectedText: string): ?EmailTemplate {
+		const tag = selectedText.substring(1) // remove # from selected text
+		return this._allTemplates.find(template => template.tag === tag)
+	}
+
 	_entityUpdate(updates: $ReadOnlyArray<EntityUpdateData>): Promise<void> {
 		return Promise.each(updates, update => {
 			if (isUpdateForTypeRef(EmailTemplateTypeRef, update)) {
@@ -188,7 +193,6 @@ export class TemplateModel {
 				}
 			}
 		}).return()
-
 	}
 }
 

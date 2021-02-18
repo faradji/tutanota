@@ -1309,7 +1309,7 @@ export default {
 		"keywords_label": "Schlüsselwörter",
 		"addEntry_label": "Eintrag hinzufügen",
 		"addTemplate_label": "Vorlage hinzufügen",
-		"selectTemplate_action": "Vorlage auswählen",
+		"selectTemplate_action": "Auswählen",
 		"templateNotExists_msg": "Diese Vorlage exisitert nicht mehr!",
 		"selectNextTemplate_action": "Selektiere nächste Vorlage",
 		"deleteTemplateGroup_msg": "Möchtest du die Template Gruppe löschen?",
