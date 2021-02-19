@@ -257,11 +257,15 @@ export class ContactViewer {
 	}
 
 	_formatBirthday(): string {
+		let bday = ""
 		if (this._hasBirthday()) {
-			return formatBirthdayWithMonthName(isoDateToBirthday(neverNull(this.contact.birthdayIso)))
-		} else {
-			return ""
+			try {
+				bday = formatBirthdayWithMonthName(isoDateToBirthday(neverNull(this.contact.birthdayIso)))
+			} catch (e) {
+				console.log("failed to parse birthday", e)
+			}
 		}
+		return bday
 	}
 
 	_hasBirthday(): boolean {
