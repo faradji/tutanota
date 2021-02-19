@@ -121,7 +121,7 @@ export class IPC {
 	}
 
 	async _invokeMethod(windowId: number, method: NativeRequestType, args: Array<Object>): any {
-
+		const TMP_DIR = this._electron.app.getPath("temp")
 		switch (method) {
 			case 'init':
 				this._initialized[windowId].resolve()
@@ -263,7 +263,7 @@ export class IPC {
 			case 'mailBundleExport': {
 				const bundles = args[0]
 				const files = await Promise.all(bundles.map(makeMsgFile))
-				return getExportDirectoryPath().then(dir => writeFiles(dir, files))
+				return getExportDirectoryPath(TMP_DIR).then(dir => writeFiles(dir, files))
 				// TODO: Are we able to select the files as well?
 				// it's possible to do so with shell.showFileInFolder but that only works for one file
 				// we dont do the open export here, we just save them to the export dir
@@ -271,19 +271,19 @@ export class IPC {
 			}
 			case 'saveBundleAsMsg': {
 				const bundle = args[0]
-				return getExportDirectoryPath()
+				return getExportDirectoryPath(TMP_DIR)
 					.then(dir => makeMsgFile(bundle)
 						.then(file => writeFile(dir, file)))
 			}
 			case 'queryAvailableMsgs': {
 				const mails: Array<Mail> = args[0]
 				// return all mails that havent already been exported
-				return mapAndFilterNullAsync(mails, mail => msgFileExists(mail._id)
+				return mapAndFilterNullAsync(mails, mail => msgFileExists(mail._id, TMP_DIR)
 					.then(exists => exists ? null : mail))
 			}
 			case 'dragExportedMails': {
 				const ids: Array<IdTuple> = args[0]
-				const getExportPath = id => getExportDirectoryPath().then(p => path.join(p, mailIdToFileName(id, "msg")))
+				const getExportPath = id => getExportDirectoryPath(TMP_DIR).then(p => path.join(p, mailIdToFileName(id, "msg")))
 				return Promise.all(ids.map(getExportPath))
 				              .then(files => files.filter(fileExists))
 				              .then(files => {
