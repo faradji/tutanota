@@ -156,7 +156,7 @@ class HtmlSanitizer {
 		EXTERNAL_CONTENT_ATTRS.forEach((attrName) => {
 			let attribute = htmlNode.attributes.getNamedItem(attrName)
 			if (attribute) {
-				if (config.usePlaceholderForInlineImages, attribute.value.startsWith("cid:")) {
+				if (config.usePlaceholderForInlineImages && attribute.value.startsWith("cid:")) {
 					// replace embedded image with local image until the embedded image is loaded and ready to be shown.
 					const cid = attribute.value.substring(4)
 					this._inlineImageCids.push(cid)
@@ -168,7 +168,7 @@ class HtmlSanitizer {
 					htmlNode.removeAttribute("srcset")
 					htmlNode.setAttribute("src", PREVENT_EXTERNAL_IMAGE_LOADING_ICON)
 					htmlNode.style.maxWidth = "100px"
-				} else if (config.blockExternalContent && !attribute.value.startsWith("data:")) {
+				} else if (config.blockExternalContent && !attribute.value.startsWith("data:") && !attribute.value.startsWith("cid:")) {
 					this._externalContent.push(attribute.value)
 					attribute.value = PREVENT_EXTERNAL_IMAGE_LOADING_ICON
 					htmlNode.attributes.setNamedItem(attribute)

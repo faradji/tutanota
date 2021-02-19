@@ -52,20 +52,22 @@ export function makeMailBundle(mail: Mail, entityClient: EntityClient, worker: W
 		: Promise.resolve(null)
 	const recipientMapper = addr => ({address: addr.address, name: addr.name})
 	return Promise.all([bodyTextPromise, attachmentsPromise, headersPromise])
-	              .spread((bodyText, attachments, headers) => ({
-		              mailId: getLetId(mail),
-		              subject: mail.subject,
-		              body: bodyText,
-		              sender: recipientMapper(mail.sender),
-		              to: mail.toRecipients.map(recipientMapper),
-		              cc: mail.ccRecipients.map(recipientMapper),
-		              bcc: mail.bccRecipients.map(recipientMapper),
-		              replyTo: mail.replyTos.map(recipientMapper),
-		              isDraft: mail.state !== MailState.DRAFT,
-		              isRead: !mail.unread,
-		              sentOn: mail.sentDate.getTime(),
-		              receivedOn: mail.receivedDate.getTime(),
-		              headers: headers && headers.headers,
-		              attachments: attachments
-	              }))
+	              .then(([bodyText, attachments, headers]) => {
+		              return {
+			              mailId: getLetId(mail),
+			              subject: mail.subject,
+			              body: bodyText,
+			              sender: recipientMapper(mail.sender),
+			              to: mail.toRecipients.map(recipientMapper),
+			              cc: mail.ccRecipients.map(recipientMapper),
+			              bcc: mail.bccRecipients.map(recipientMapper),
+			              replyTo: mail.replyTos.map(recipientMapper),
+			              isDraft: mail.state !== MailState.DRAFT,
+			              isRead: !mail.unread,
+			              sentOn: mail.sentDate.getTime(),
+			              receivedOn: mail.receivedDate.getTime(),
+			              headers: headers && headers.headers,
+			              attachments: attachments
+		              }
+	              })
 }
