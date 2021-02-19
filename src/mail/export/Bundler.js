@@ -42,10 +42,11 @@ export function makeMailBundle(mail: Mail, entityClient: EntityClient, worker: W
 	const bodyTextPromise = entityClient.load(MailBodyTypeRef, mail.body)
 	                                    .then(getMailBodyText)
 	                                    .then(body => import("../../misc/HtmlSanitizer")
-		                                    .then(({htmlSanitizer}) => htmlSanitizer.sanitize(body, false).text))
+		                                    .then(({htmlSanitizer}) => htmlSanitizer.sanitize(body, {usePlaceholderForInlineImages: false}).text))
 
 	const attachmentsPromise = Promise.mapSeries(mail.attachments,
 		fileId => entityClient.load(FileTypeRef, fileId).then(worker.downloadFileContent.bind(worker)))
+
 	const headersPromise = mail.headers
 		? entityClient.load(MailHeadersTypeRef, mail.headers)
 		: Promise.resolve(null)
